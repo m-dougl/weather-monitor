@@ -6,7 +6,7 @@ class Logger:
     def __init__(self, source: str):
         self.source = source
         date = datetime.today().strftime("%Y-%m-%d")
-        base_path = Path('./logs')
+        base_path = Path('./logs_pipeline')
         logs_path = base_path / date
 
         base_path.mkdir(exist_ok=True)
