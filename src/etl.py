@@ -136,7 +136,7 @@ def load() -> None:
         logger.log(level='info', message='Weather data successfully created in the database')
 
 if __name__ == "__main__":
-    city_list = ["Cachoeira do Arari", "Belem", "Manaus", "Sao Paulo"]
+    city_list = ["Belem", "Manaus", "Sao Paulo", "Rio de Janeiro"]
     for city in city_list:
         extract(city=city)
     join_data()
