@@ -1,8 +1,8 @@
 import os
 import pandas as pd
-import requests as r
-import logging
+import requests
 import json
+from logger import Logger
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
@@ -11,15 +11,7 @@ from schemas import WeatherSchema, CitiesSchema
 from models import WeatherInfo, CitiesInfo
 
 load_dotenv()
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-    handlers=[
-        logging.FileHandler(Path("./logs/etl.log")),
-        logging.StreamHandler(),
-    ],
-)
+logger = Logger(source="etl")
 
 def extract(city: str) -> None:
     city = city.replace(" ", "+")
@@ -27,12 +19,12 @@ def extract(city: str) -> None:
         f"http://api.weatherapi.com/v1/current.json?key={os.getenv('API_KEY')}&q={city}"
     )
     try:
-        response = r.get(api_url)
-    except r.exceptions.RequestException as e:
-        logging.error(f"An error occurred while fetching weather data: \n({e})")
+        response = requests.get(api_url)
+    except requests.exceptions.RequestException as e:
+        logger.log(level='error', message=f'An error occurred while fetching weather data: \n({e})')
         raise Exception("An error occurred while fetching weather data")
 
-    if response.status_code == r.codes.ok:
+    if response.status_code == requests.codes.ok:
         data_path = Path("./data/raw_data")
         os.makedirs(data_path, exist_ok=True)
 
@@ -40,7 +32,7 @@ def extract(city: str) -> None:
         with open(data_path.joinpath(f"data_{timestamp}.json"), "w") as f:
             json.dump(response.json(), f)
     else:
-        logging.error(f"Failed to fetch data. Status code: {response.status_code}")
+        logger.log(level='error', message=f'Failed to fetch data. Status code: {response.status_code}')
         raise Exception(f"Failed to fetch data. Status code: {response.status_code}")
 
 def join_data() -> None:
@@ -51,7 +43,7 @@ def join_data() -> None:
     try:
         data_list = [f for f in os.listdir(raw_data_path) if f.endswith(".json")]
     except:
-        logging.error("Failed to load raw data")
+        logger.log(level='error', message='Failed to load raw data')
         raise Exception("Failed to load raw data")
 
     df_list = []
@@ -86,7 +78,7 @@ def transform() -> None:
     data_file = transformed_data_path.joinpath("data.csv")
 
     if not data_file.exists():
-        logging.error("Transformed data not found.")
+        logger.log(level='error', message='Transformed data not found')
         raise Exception("Transformed data not found.")
 
     df = pd.read_csv(data_file)
@@ -101,9 +93,7 @@ def transform() -> None:
 
     cities_df.to_csv(cities_file, index=False)
     weather_df.to_csv(values_file, index=False)
-    logging.info(
-        f"Data transformation complete. 'cities.csv' and 'values.csv' saved in {transformed_data_path}"
-    )
+    logger.log(level='info', message=f"Data transformation complete. 'cities.csv and 'values.csv' saved in {transformed_data_path}")
 
 def load() -> None:
     transformed_data_path = Path("./data/transformed_data")
@@ -126,7 +116,7 @@ def load() -> None:
                 instance = CitiesInfo(**val_data.model_dump())
                 session.add(instance)
         session.commit()
-        logging.info("Cities data successfully created in the database.")
+        logger.log(level='info', message='Cities data successfully created in the database.')
 
     with next(get_session()) as session:
         for _, row in weather_df.iterrows():
@@ -143,7 +133,7 @@ def load() -> None:
                 instance = WeatherInfo(**val_data.model_dump())
                 session.add(instance)
         session.commit()
-        logging.info("Weather data successfully created in the database.")
+        logger.log(level='info', message='Weather data successfully created in the database')
 
 if __name__ == "__main__":
     city_list = ["Cachoeira do Arari", "Belem", "Manaus", "Sao Paulo"]
